@@ -1,151 +1,145 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import './Pausenplan.scss';
 
 const Pausenplan = () => {
-  const [schedule, setSchedule] = useState(Array.from({ length: 14 }, () => ({
+  const daysOfWeek = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+
+  const initialSchedule = Array.from({ length: 6 }, () => []);
+
+  const [selectedDay, setSelectedDay] = useState(0);
+  const [schedules, setSchedules] = useState(initialSchedule);
+  const [isEditable, setIsEditable] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({
     name: '',
     morning: '',
     middayOption: '',
     midday: '',
-    middayFrom: '',
-    middayTo: '',
     afternoon: '',
     termineFrom: '',
     termineTo: '',
-    termineDescription: '',
-  })));
-  const [isEditable, setIsEditable] = useState(true);
+    termineDescription: ''
+  });
 
-  const handleNameChange = (index, event) => {
-    const newSchedule = [...schedule];
-    newSchedule[index].name = event.target.value;
-    setSchedule(newSchedule);
+  useEffect(() => {
+    axios.get('https://backendpausenplan.onrender.com/mitarbeiterpausen')
+      .then(response => {
+        if (response.data.data && response.data.data.length > 0) {
+          setSchedules(response.data.data);
+        } else {
+          setSchedules(initialSchedule);
+        }
+      })
+      .catch(error => {
+        console.error('Fehler beim Laden der Pausendaten:', error);
+      });
+  }, []);
+
+  const handleNameChange = (dayIndex, index, event) => {
+    const newSchedules = [...schedules];
+    newSchedules[dayIndex][index].name = event.target.value;
+    setSchedules(newSchedules);
   };
 
-  const handleTimeChange = (index, period, event) => {
-    const newSchedule = [...schedule];
-    newSchedule[index][period] = event.target.value;
-    setSchedule(newSchedule);
+  const handleAddEmployee = () => {
+    setShowPopup(true);
   };
 
-  const handleMiddayOptionChange = (index, event) => {
-    const newSchedule = [...schedule];
-    newSchedule[index].middayOption = event.target.value;
-    if (event.target.value === '') {
-      newSchedule[index].midday = '';
-    } else {
-      newSchedule[index].middayFrom = '';
-      newSchedule[index].middayTo = '';
-    }
-    setSchedule(newSchedule);
+  const handlePopupClose = () => {
+    setShowPopup(false);
+    setNewEmployee({
+      name: '',
+      morning: '',
+      middayOption: '',
+      midday: '',
+      afternoon: '',
+      termineFrom: '',
+      termineTo: '',
+      termineDescription: ''
+    });
   };
 
-  const handleTermineFromChange = (index, event) => {
-    const newSchedule = [...schedule];
-    newSchedule[index].termineFrom = event.target.value;
-    setSchedule(newSchedule);
-  };
-
-  const handleTermineToChange = (index, event) => {
-    const newSchedule = [...schedule];
-    newSchedule[index].termineTo = event.target.value;
-    setSchedule(newSchedule);
-  };
-
-  const handleTermineDescriptionChange = (index, event) => {
-    const newSchedule = [...schedule];
-    newSchedule[index].termineDescription = event.target.value;
-    setSchedule(newSchedule);
-  };
-
-  const handleEdit = () => {
-    setIsEditable(true);
-  };
-
-  const handleSave = () => {
-    setIsEditable(false);
-  };
-
-  const getRowClass = (entry) => {
-    if (entry.middayOption === 'ab') {
-      return 'in-break-ab';
-    } else if (entry.middayOption === 'bis') {
-      return 'in-break-bis';
-    }
-    return '';
+  const handlePopupSave = () => {
+    axios.post('https://backendpausenplan.onrender.com/mitarbeiterpausen', newEmployee)
+      .then(response => {
+        console.log('Mitarbeiter erfolgreich hinzugefügt:', response);
+        setShowPopup(false);
+        setNewEmployee({
+          name: '',
+          morning: '',
+          middayOption: '',
+          midday: '',
+          afternoon: '',
+          termineFrom: '',
+          termineTo: '',
+          termineDescription: ''
+        });
+      })
+      .catch(error => {
+        console.error('Fehler beim Hinzufügen des Mitarbeiters:', error);
+      });
   };
 
   return (
     <div>
-      <h2>Pausenplan</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Vormittag</th>
-            <th>Mittag</th>
-            <th>Nachmittag</th>
-            <th>Termine</th>
-          </tr>
-        </thead>
-        <tbody>
-          {schedule.map((entry, index) => (
-            <tr key={index} className={getRowClass(entry)}>
-              <td>{isEditable ? <input type="text" value={entry.name} onChange={(e) => handleNameChange(index, e)} /> : entry.name}</td>
-              <td className={entry.middayOption === 'ab' ? 'in-break' : ''}>
-                {isEditable && entry.middayOption !== 'ab' ? (
-                  <input type="time" value={entry.morning} onChange={(e) => handleTimeChange(index, 'morning', e)} />
-                ) : (
-                  entry.middayOption === 'ab' ? '---' : entry.morning
-                )}
-              </td>
-              <td>
-                {isEditable ? (
-                  <>
-                    <select value={entry.middayOption} onChange={(e) => handleMiddayOptionChange(index, e)}>
-                      <option value="">Von-Bis</option>
-                      <option value="ab">ab</option>
-                      <option value="bis">bis</option>
-                    </select>
-                    {entry.middayOption ? (
-                      <input type="time" value={entry.midday} onChange={(e) => handleTimeChange(index, 'midday', e)} />
-                    ) : (
-                      <>
-                        Von: <input type="time" value={entry.middayFrom} onChange={(e) => handleTimeChange(index, 'middayFrom', e)} />
-                        Bis: <input type="time" value={entry.middayTo} onChange={(e) => handleTimeChange(index, 'middayTo', e)} />
-                      </>
-                    )}
-                  </>
-                ) : (
-                  entry.middayOption ? `${entry.middayOption} ${entry.midday}` : `${entry.middayFrom} - ${entry.middayTo}`
-                )}
-              </td>
-              <td className={entry.middayOption === 'bis' ? 'in-break' : ''}>
-                {isEditable && entry.middayOption !== 'bis' ? (
-                  <input type="time" value={entry.afternoon} onChange={(e) => handleTimeChange(index, 'afternoon', e)} />
-                ) : (
-                  entry.middayOption === 'bis' ? '---' : entry.afternoon
-                )}
-              </td>
-              <td>
-                {isEditable ? (
-                  <>
-                    Von: <input type="time" value={entry.termineFrom} onChange={(e) => handleTermineFromChange(index, e)} />
-                    Bis: <input type="time" value={entry.termineTo} onChange={(e) => handleTermineToChange(index, e)} />
-                    Beschreibung: <input type="text" value={entry.termineDescription} onChange={(e) => handleTermineDescriptionChange(index, e)} />
-                  </>
-                ) : (
-                  `${entry.termineFrom} - ${entry.termineTo}: ${entry.termineDescription}`
-                )}
-              </td>
+      <div className="tab-bar">
+        {daysOfWeek.map((day, index) => (
+          <div key={index} className={`tab ${selectedDay === index ? 'active' : ''}`} onClick={() => setSelectedDay(index)}>
+            {day}
+          </div>
+        ))}
+      </div>
+      <div>
+        <h2>{daysOfWeek[selectedDay]}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Vormittag</th>
+              <th>Mittag</th>
+              <th>Nachmittag</th>
+              <th>Termine</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {isEditable ? (
-        <button onClick={handleSave}>Speichern</button>
-      ) : (
-        <button onClick={handleEdit}>Bearbeiten</button>
+          </thead>
+          <tbody>
+            {/* Tabelle mit Zeitplan-Daten hier einfügen */}
+            {schedules[selectedDay] ? (
+              schedules[selectedDay].map((entry, index) => (
+                <tr key={index}>
+                  <td>{entry.name}</td>
+                  <td>{entry.morning}</td>
+                  <td>{entry.midday}</td>
+                  <td>{entry.afternoon}</td>
+                  <td>{entry.termineFrom} - {entry.termineTo}: {entry.termineDescription}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="5">Keine Daten vorhanden</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <div className="button-container">
+        <button className="add-button" onClick={handleAddEmployee}>+</button>
+      </div>
+      {showPopup && (
+        <div className="popup">
+          <div className="popup-content">
+            <span className="close" onClick={handlePopupClose}>&times;</span>
+            <h2>Mitarbeiter hinzufügen</h2>
+            <input type="text" placeholder="Name" value={newEmployee.name} onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })} />
+            <input type="time" placeholder="Vormittag" value={newEmployee.morning} onChange={(e) => setNewEmployee({ ...newEmployee, morning: e.target.value })} />
+            <input type="time" placeholder="Mittag" value={newEmployee.midday} onChange={(e) => setNewEmployee({ ...newEmployee, midday: e.target.value })} />
+            <input type="time" placeholder="Nachmittag" value={newEmployee.afternoon} onChange={(e) => setNewEmployee({ ...newEmployee, afternoon: e.target.value })} />
+            <input type="time" placeholder="Termin von" value={newEmployee.termineFrom} onChange={(e) => setNewEmployee({ ...newEmployee, termineFrom: e.target.value })} />
+            <input type="time" placeholder="Termin bis" value={newEmployee.termineTo} onChange={(e) => setNewEmployee({ ...newEmployee, termineTo: e.target.value })} />
+            <input type="text" placeholder="Beschreibung" value={newEmployee.termineDescription} onChange={(e) => setNewEmployee({ ...newEmployee, termineDescription: e.target.value })} />
+            <button className="save-button" onClick={handlePopupSave}>Speichern</button>
+          </div>
+        </div>
       )}
     </div>
   );
